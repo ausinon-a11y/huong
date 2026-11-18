@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedEmail() && (
+        request.auth.token.email == 'ausinon@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOptionalString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isValidStoryFields(data) {
+      return data.keys().hasAll(['title', 'fullStory', 'status', 'createdAt']) &&
+        data.keys().hasOnly([
+          'title', 'summary', 'fullStory', 'petName', 'species',
+          'adopterName', 'adoptDate', 'beforeImage', 'afterImage',
+          'quote', 'status', 'source', 'authorUid', 'draftId',
+          'createdAt', 'publishedAt'
+        ]) &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.fullStory is string && data.fullStory.size() >= 1 && data.fullStory.size() <= 20000 &&
+        data.status in ['published', 'pending'] &&
+        data.createdAt is timestamp &&
+        isOptionalString(data, 'summary', 500) &&
+        isOptionalString(data, 'petName', 100) &&
+        (!( 'species' in data ) || data.species in ['dog', 'cat']) &&
+        isOptionalString(data, 'adopterName', 120) &&
+        isOptionalString(data, 'adoptDate', 50) &&
+        isOptionalString(data, 'beforeImage', 1000) &&
+        isOptionalString(data, 'afterImage', 1000) &&
+        isOptionalString(data, 'quote', 500) &&
+        (!( 'source' in data ) || data.source in ['n8n_ai_marketing', 'community_submission', 'admin']) &&
+        isOptionalString(data, 'authorUid', 128) &&
+        isOptionalString(data, 'draftId', 128) &&
+        (!( 'publishedAt' in data ) || data.publishedAt is timestamp);
+    }
+
+    function isValidAdminStoryCreate(data) {
+      return data.createdAt == request.time &&
+        (!('authorUid' in data) || data.authorUid == request.auth.uid) &&
+        (data.status != 'published' || ('publishedAt' in data && data.publishedAt == request.time));
+    }
+
+    function isValidGuestStoryCreate(data) {
+      return data.status == 'pending' &&
+        data.source == 'community_submission' &&
+        data.createdAt == request.time &&
+        !('publishedAt' in data) &&
+        !('authorUid' in data) &&
+        !('draftId' in data);
+    }
+
+    // Stories Collection
+    match /stories/{storyId} {
+      // Guests may only read published stories; admins may read all stories (published & pending)
+      allow get: if isValidId(storyId) && (existing().status == 'published' || isAdmin());
+      allow list: if resource.data.status == 'published' || isAdmin();
+
+      // Admins can create published/pending stories; guests can ONLY submit pending stories
+      allow create: if isValidId(storyId) &&
+        isValidStoryFields(incoming()) && (
+          (isAdmin() && isValidAdminStoryCreate(incoming())) ||
+          isValidGuestStoryCreate(incoming())
+        );
+
+      // Only admins can update stories (e.g., edit or approve pending -> published); createdAt is immutable
+      allow update: if isValidId(storyId) &&
+        isSignedIn() &&
+        isValidStoryFields(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'summary', 'fullStory', 'petName', 'species',
+          'adopterName', 'adoptDate', 'beforeImage', 'afterImage',
+          'quote', 'status', 'publishedAt'
+        ]) &&
+        isAdmin();
+
+      // Only admins can delete stories
+      allow delete: if isValidId(storyId) && isSignedIn() && isAdmin();
+    }
+
+    // Admins Registry (console-managed only)
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && isAdmin();
+      allow list, create, update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "Story": {
+      "title": "Story",
+      "description": "A heartwarming rescue or adoption story displayed in Góc yêu thương (published) or awaiting review (pending).",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the story.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "summary": {
+          "type": "string",
+          "description": "Short summary of the story.",
+          "maxLength": 500
+        },
+        "fullStory": {
+          "type": "string",
+          "description": "Full body content (supports Markdown or plain text).",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "petName": {
+          "type": "string",
+          "description": "Optional name of the pet.",
+          "maxLength": 100
+        },
+        "species": {
+          "type": "string",
+          "enum": ["dog", "cat"],
+          "description": "Optional species of the pet."
+        },
+        "adopterName": {
+          "type": "string",
+          "description": "Optional adopter or author display name.",
+          "maxLength": 120
+        },
+        "adoptDate": {
+          "type": "string",
+          "description": "Optional adoption date text.",
+          "maxLength": 50
+        },
+        "beforeImage": {
+          "type": "string",
+          "description": "Optional URL of before-rescue photo.",
+          "maxLength": 1000
+        },
+        "afterImage": {
+          "type": "string",
+          "description": "Optional URL of after-adoption photo.",
+          "maxLength": 1000
+        },
+        "quote": {
+          "type": "string",
+          "description": "Optional quote from adopter or author.",
+          "maxLength": 500
+        },
+        "status": {
+          "type": "string",
+          "enum": ["published", "pending"],
+          "description": "Moderation/publication status of the story."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["n8n_ai_marketing", "community_submission", "admin"],
+          "description": "Origin of the story."
+        },
+        "authorUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the publishing admin (if created by admin).",
+          "maxLength": 128
+        },
+        "draftId": {
+          "type": "string",
+          "description": "Idempotency key for draft publishing.",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the document was created."
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the story was published."
+        }
+      },
+      "required": ["title", "fullStory", "status", "createdAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Admin role assignment document keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["admin"],
+          "description": "Role name."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when admin record was created."
+        }
+      },
+      "required": ["role", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/stories/{storyId}": {
+      "schema": { "$ref": "#/entities/Story" },
+      "description": "Stories collection containing published stories for Góc yêu thương and pending guest submissions."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Admin users allowlist keyed by UID."
+    }
+  }
+}

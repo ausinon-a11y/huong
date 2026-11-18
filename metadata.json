@@ -1,0 +1,8 @@
+{
+  "name": "Trạm Nhận Nuôi Chó Mèo",
+  "description": "Nền tảng cứu hộ, nhận nuôi và tìm kiếm thú cưng thất lạc với hành trình kết nối yêu thương.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
